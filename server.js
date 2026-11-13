@@ -396,8 +396,11 @@ app.get("/catalog/:type/:id/:extraArgs.json", (req, res) => {
 /* Preserve the existing Nuvio metadata route and hallmark:<TMDB ID> format. */
 app.get("/meta/:type/:id.json", async (req, res) => {
   try {
-    const id = req.params.id;
-    const tmdbId = Number(id.replace("hallmark:", ""));
+    const id = String(req.params.id || "");
+    // Some Nuvio clients normalize addon IDs and strip the colon from hallmark:<TMDB ID>.
+    // Accept both hallmark:12345 and hallmark12345 so metadata resolves on mobile and Android TV.
+    const idMatch = id.match(/^hallmark:?([0-9]+)$/i);
+    const tmdbId = idMatch ? Number(idMatch[1]) : NaN;
 
     if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
       return res.status(400).json({ meta: null });
