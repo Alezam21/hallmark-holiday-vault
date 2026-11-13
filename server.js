@@ -216,9 +216,10 @@ async function movieDetails(movie) {
   if (cached && cached.expires > Date.now()) return cached.value;
 
   const data = await tmdb(`/movie/${tmdbId}`);
-  const [providerData, externalIds] = await Promise.all([
+  const [providerData, externalIds, credits] = await Promise.all([
     tmdb(`/movie/${tmdbId}/watch/providers`),
-    tmdb(`/movie/${tmdbId}/external_ids`).catch(() => ({}))
+    tmdb(`/movie/${tmdbId}/external_ids`).catch(() => ({})),
+    tmdb(`/movie/${tmdbId}/credits`).catch(() => ({ cast: [], crew: [] }))
   ]);
   const regional = providerData.results?.[REGION] || {};
 
@@ -269,7 +270,19 @@ async function movieDetails(movie) {
     releaseInfo: data.release_date
       ? data.release_date.slice(0, 4)
       : String(movie.year || ""),
+    year: data.release_date ? Number(data.release_date.slice(0, 4)) : movie.year,
+    released: data.release_date || undefined,
+    runtime: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : undefined,
     genres: (data.genres || []).map(genre => genre.name),
+    cast: (credits.cast || []).slice(0, 20).map(person => person.name),
+    director: (credits.crew || [])
+      .filter(person => person.job === "Director")
+      .map(person => person.name),
+    writer: (credits.crew || [])
+      .filter(person => ["Writer", "Screenplay", "Story"].includes(person.job))
+      .map(person => person.name)
+      .filter((name, index, list) => list.indexOf(name) === index),
+    country: (data.production_countries || []).map(country => country.name),
     links: [{
       name: `Find where to watch in ${REGION}`,
       category: "watch",
@@ -340,7 +353,7 @@ async function makeCatalog(id, search = "", skip = 0) {
 
 const manifest = {
   id: "com.hallmark.holidayvault",
-  version: "1.2.0",
+  version: "1.3.0",
   name: "Hallmark Holiday Vault",
   description: "Hallmark holiday movie catalog and seasonal collections.",
   resources: [
