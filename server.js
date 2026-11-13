@@ -41,6 +41,8 @@ const COMPANY_SEARCH_TERMS = [
   "Crown Media Productions"
 ];
 const MAX_DISCOVERY_PAGES = 25;
+// Keep the catalogue focused on the latest eight years.
+const MIN_RELEASE_YEAR = new Date().getFullYear() - 8;
 
 function readMovies() {
   return JSON.parse(fs.readFileSync(MOVIES_FILE, "utf8"));
@@ -156,13 +158,16 @@ async function discoverHallmarkMovies() {
 
     for (const item of result.results || []) {
       if (!item.id || !(item.title || item.original_title)) continue;
-      if (!discovered.has(item.id)) discovered.set(item.id, asMovie(item));
+      const movie = asMovie(item);
+      if (!movie.year || movie.year < MIN_RELEASE_YEAR) continue;
+      if (!discovered.has(item.id)) discovered.set(item.id, movie);
     }
   }
 
   // Keep the original hand-entered titles as a safety net for TMDB records
   // that are not linked to a Hallmark production-company entry.
   for (const movie of readMovies()) {
+    if (movie.year && Number(movie.year) < MIN_RELEASE_YEAR) continue;
     if (movie.tmdbId && !discovered.has(movie.tmdbId)) {
       discovered.set(movie.tmdbId, {
         ...movie,
@@ -293,7 +298,10 @@ async function movieDetails(movie) {
       .filter(person => ["Writer", "Screenplay", "Story"].includes(person.job))
       .map(person => person.name)
       .filter((name, index, list) => list.indexOf(name) === index),
-    country: (data.production_countries || []).map(country => country.name).join(", "),
+    // Nuvio expects country to be a string, never an array or object.
+    country: Array.isArray(data.production_countries)
+      ? data.production_countries.map(country => country?.name).filter(Boolean).join(", ")
+      : "",
     links: [{
       name: `Find where to watch in ${REGION}`,
       category: "watch",
@@ -364,7 +372,7 @@ async function makeCatalog(id, search = "", skip = 0) {
 
 const manifest = {
   id: "com.hallmark.holidayvault",
-  version: "1.4.1",
+  version: "1.4.2",
   name: "Hallmark Holiday Vault",
   description: "Hallmark holiday movie catalog and seasonal collections.",
   resources: [
@@ -451,6 +459,14 @@ app.get("/meta/:type/:id.json", async (req, res) => {
     };
 
     const meta = await movieDetails(movie);
+    // Final response guard: normalize country even if an upstream/cache value is malformed.
+    if (meta) {
+      meta.country = typeof meta.country === "string"
+        ? meta.country
+        : Array.isArray(meta.country)
+          ? meta.country.map(value => typeof value === "string" ? value : value?.name).filter(Boolean).join(", ")
+          : "";
+    }
     res.json({ meta });
   } catch (error) {
     console.error("Metadata error:", error);
