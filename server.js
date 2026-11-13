@@ -293,7 +293,7 @@ async function movieDetails(movie) {
       .filter(person => ["Writer", "Screenplay", "Story"].includes(person.job))
       .map(person => person.name)
       .filter((name, index, list) => list.indexOf(name) === index),
-    country: (data.production_countries || []).map(country => country.name),
+    country: (data.production_countries || []).map(country => country.name).join(", "),
     links: [{
       name: `Find where to watch in ${REGION}`,
       category: "watch",
@@ -364,7 +364,7 @@ async function makeCatalog(id, search = "", skip = 0) {
 
 const manifest = {
   id: "com.hallmark.holidayvault",
-  version: "1.4.0",
+  version: "1.4.1",
   name: "Hallmark Holiday Vault",
   description: "Hallmark holiday movie catalog and seasonal collections.",
   resources: [
