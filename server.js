@@ -274,7 +274,18 @@ async function movieDetails(movie) {
     released: data.release_date || undefined,
     runtime: data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : undefined,
     genres: (data.genres || []).map(genre => genre.name),
+    // Keep the simple cast list for Stremio compatibility and provide
+    // Nuvio's richer app_extras format for actor galleries and profile images.
     cast: (credits.cast || []).slice(0, 20).map(person => person.name),
+    app_extras: {
+      cast: (credits.cast || []).slice(0, 20).map(person => ({
+        name: person.name,
+        character: person.character || "",
+        photo: person.profile_path
+          ? `https://image.tmdb.org/t/p/w185${person.profile_path}`
+          : undefined
+      }))
+    },
     director: (credits.crew || [])
       .filter(person => person.job === "Director")
       .map(person => person.name),
@@ -353,7 +364,7 @@ async function makeCatalog(id, search = "", skip = 0) {
 
 const manifest = {
   id: "com.hallmark.holidayvault",
-  version: "1.3.0",
+  version: "1.4.0",
   name: "Hallmark Holiday Vault",
   description: "Hallmark holiday movie catalog and seasonal collections.",
   resources: [
