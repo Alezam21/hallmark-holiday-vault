@@ -34,8 +34,11 @@ const DISCOVERY_CACHE_KEY = "hallmark-discovery-v1";
 const COMPANY_SEARCH_TERMS = [
   "Hallmark",
   "Hallmark Channel",
-  "Hallmark Cards",
-  "Crown Media"
+  "Hallmark Movies & Mysteries",
+  "Hallmark Entertainment",
+  "Hallmark Media",
+  "Crown Media",
+  "Crown Media Productions"
 ];
 const MAX_DISCOVERY_PAGES = 25;
 
