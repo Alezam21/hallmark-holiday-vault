@@ -216,7 +216,10 @@ async function movieDetails(movie) {
   if (cached && cached.expires > Date.now()) return cached.value;
 
   const data = await tmdb(`/movie/${tmdbId}`);
-  const providerData = await tmdb(`/movie/${tmdbId}/watch/providers`);
+  const [providerData, externalIds] = await Promise.all([
+    tmdb(`/movie/${tmdbId}/watch/providers`),
+    tmdb(`/movie/${tmdbId}/external_ids`).catch(() => ({}))
+  ]);
   const regional = providerData.results?.[REGION] || {};
 
   const providers = [
@@ -247,7 +250,9 @@ async function movieDetails(movie) {
   ].join("\n");
 
   const meta = {
-    id: `hallmark:${tmdbId}`,
+    // Prefer IMDb IDs because most Nuvio/Stremio stream addons identify movies by tt IDs.
+    // Keep a TMDB fallback for titles without an IMDb mapping.
+    id: externalIds.imdb_id || `tmdb:${tmdbId}`,
     type: "movie",
     name: data.title || movie.title,
     poster: data.poster_path
@@ -335,12 +340,14 @@ async function makeCatalog(id, search = "", skip = 0) {
 
 const manifest = {
   id: "com.hallmark.holidayvault",
-  version: "1.1.0",
+  version: "1.2.0",
   name: "Hallmark Holiday Vault",
   description: "Hallmark holiday movie catalog and seasonal collections.",
-  resources: ["catalog", "meta"],
+  resources: [
+    "catalog",
+    { name: "meta", types: ["movie"], idPrefixes: ["tt", "tmdb:", "hallmark:"] }
+  ],
   types: ["movie"],
-  idPrefixes: ["hallmark:"],
   catalogs: catalogs.map(([id, name]) => ({
     type: "movie",
     id,
@@ -397,19 +404,24 @@ app.get("/catalog/:type/:id/:extraArgs.json", (req, res) => {
 app.get("/meta/:type/:id.json", async (req, res) => {
   try {
     const id = String(req.params.id || "");
-    // Some Nuvio clients normalize addon IDs and strip the colon from hallmark:<TMDB ID>.
-    // Accept both hallmark:12345 and hallmark12345 so metadata resolves on mobile and Android TV.
-    const idMatch = id.match(/^hallmark:?([0-9]+)$/i);
-    const tmdbId = idMatch ? Number(idMatch[1]) : NaN;
+    // Accept legacy Hallmark IDs, TMDB IDs, and standard IMDb IDs.
+    const hallmarkMatch = id.match(/^hallmark:?([0-9]+)$/i);
+    const tmdbMatch = id.match(/^tmdb:([0-9]+)$/i);
+    let tmdbId = hallmarkMatch ? Number(hallmarkMatch[1]) :
+      tmdbMatch ? Number(tmdbMatch[1]) : NaN;
 
-    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
-      return res.status(400).json({ meta: null });
+    if (/^tt[0-9]+$/i.test(id)) {
+      const found = await tmdb(`/find/${encodeURIComponent(id)}?external_source=imdb_id`);
+      tmdbId = found.movie_results?.[0]?.id || NaN;
     }
 
-    let movie = null;
+    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+      return res.status(404).json({ meta: null });
+    }
+
     const cachedDiscovery = cache.get(DISCOVERY_CACHE_KEY);
     const candidates = cachedDiscovery?.value || readMovies();
-    movie = candidates.find(item => Number(item.tmdbId) === tmdbId) || {
+    const movie = candidates.find(item => Number(item.tmdbId) === tmdbId) || {
       tmdbId,
       title: `Hallmark movie ${tmdbId}`
     };
