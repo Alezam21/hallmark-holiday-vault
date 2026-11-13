@@ -59,12 +59,12 @@ async function tmdb(pathname) {
   if (TMDB_KEY) url.searchParams.set("api_key", TMDB_KEY);
 
   const headers = { accept: "application/json" };
-  if (TMDB_TOKEN) headers.Authorization = \`Bearer \${TMDB_TOKEN}\`;
+  if (TMDB_TOKEN) headers.Authorization = `Bearer ${TMDB_TOKEN}`;
 
   const response = await fetch(url, { headers });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(\`TMDB error: \${response.status} \${body.slice(0, 180)}\`);
+    throw new Error(`TMDB error: ${response.status} ${body.slice(0, 180)}`);
   }
   return response.json();
 }
@@ -117,7 +117,7 @@ async function discoverHallmarkMovies() {
   const companySearches = await Promise.all(
     COMPANY_SEARCH_TERMS.map(async term => {
       const params = new URLSearchParams({ query: term, page: "1" });
-      const result = await tmdb(\`/search/company?\${params}\`);
+      const result = await tmdb(`/search/company?${params}`);
       return result.results || [];
     })
   );
@@ -148,7 +148,7 @@ async function discoverHallmarkMovies() {
       include_video: "false",
       page: String(page)
     });
-    const result = await tmdb(\`/discover/movie?\${params}\`);
+    const result = await tmdb(`/discover/movie?${params}`);
     totalPages = Math.min(Number(result.total_pages) || 1, MAX_DISCOVERY_PAGES);
 
     for (const item of result.results || []) {
@@ -169,8 +169,8 @@ async function discoverHallmarkMovies() {
   }
 
   const movies = [...discovered.values()].sort((a, b) => {
-    const dateA = a.release_date || \`\${a.year || 0}-01-01\`;
-    const dateB = b.release_date || \`\${b.year || 0}-01-01\`;
+    const dateA = a.release_date || `${a.year || 0}-01-01`;
+    const dateB = b.release_date || `${b.year || 0}-01-01`;
     return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
   });
 
@@ -179,20 +179,20 @@ async function discoverHallmarkMovies() {
     expires: Date.now() + CACHE_TIME
   });
 
-  console.log(\`Hallmark discovery refreshed: \${movies.length} movies from \${companyIds.length} companies and \${Math.min(totalPages, MAX_DISCOVERY_PAGES)} TMDB pages.\`);
+  console.log(`Hallmark discovery refreshed: ${movies.length} movies from ${companyIds.length} companies and ${Math.min(totalPages, MAX_DISCOVERY_PAGES)} TMDB pages.`);
   return movies;
 }
 
 async function resolveMovie(movie) {
   if (movie.tmdbId) return movie.tmdbId;
 
-  const key = \`search:\${movie.title}:\${movie.year}\`;
+  const key = `search:${movie.title}:${movie.year}`;
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
 
   const params = new URLSearchParams({ query: movie.title });
   if (movie.year) params.set("year", String(movie.year));
-  const result = await tmdb(\`/search/movie?\${params}\`);
+  const result = await tmdb(`/search/movie?${params}`);
 
   const match = (result.results || []).find(item =>
     normalize(item.title) === normalize(movie.title) &&
@@ -208,12 +208,12 @@ async function movieDetails(movie) {
   const tmdbId = await resolveMovie(movie);
   if (!tmdbId) return null;
 
-  const key = \`movie:\${tmdbId}\`;
+  const key = `movie:${tmdbId}`;
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now()) return cached.value;
 
-  const data = await tmdb(\`/movie/\${tmdbId}\`);
-  const providerData = await tmdb(\`/movie/\${tmdbId}/watch/providers\`);
+  const data = await tmdb(`/movie/${tmdbId}`);
+  const providerData = await tmdb(`/movie/${tmdbId}/watch/providers`);
   const regional = providerData.results?.[REGION] || {};
 
   const providers = [
@@ -229,33 +229,33 @@ async function movieDetails(movie) {
   ).values()];
 
   const watchUrl = regional.link ||
-    \`https://www.justwatch.com/\${REGION.toLowerCase()}/search?q=\${encodeURIComponent(movie.title)}\`;
+    `https://www.justwatch.com/${REGION.toLowerCase()}/search?q=${encodeURIComponent(movie.title)}`;
 
   const description = [
     data.overview || movie.overview || "Movie description not available.",
     "",
-    \`Holiday: \${(movie.holiday || inferHoliday({ ...data, title: data.title })).join(", ") || "Not categorized"}\`,
-    \`Network/Studio: \${(data.production_companies || []).map(company => company.name).join(", ") || "Hallmark"}\`,
-    \`Streaming availability (\${REGION}): \${uniqueProviders.length
+    `Holiday: ${(movie.holiday || inferHoliday({ ...data, title: data.title })).join(", ") || "Not categorized"}`,
+    `Network/Studio: ${(data.production_companies || []).map(company => company.name).join(", ") || "Hallmark"}`,
+    `Streaming availability (${REGION}): ${uniqueProviders.length
       ? uniqueProviders.map(provider => provider.provider_name).join(", ")
-      : "No providers currently listed"}\`,
+      : "No providers currently listed"}`,
     "",
     "Availability may change. Check the provider before subscribing."
-  ].join("\\n");
+  ].join("\n");
 
   const meta = {
-    id: \`hallmark:\${tmdbId}\`,
+    id: `hallmark:${tmdbId}`,
     type: "movie",
     name: data.title || movie.title,
     poster: data.poster_path
-      ? \`https://image.tmdb.org/t/p/w500\${data.poster_path}\`
+      ? `https://image.tmdb.org/t/p/w500${data.poster_path}`
       : movie.poster_path
-        ? \`https://image.tmdb.org/t/p/w500\${movie.poster_path}\`
+        ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
         : undefined,
     background: data.backdrop_path
-      ? \`https://image.tmdb.org/t/p/w1280\${data.backdrop_path}\`
+      ? `https://image.tmdb.org/t/p/w1280${data.backdrop_path}`
       : movie.backdrop_path
-        ? \`https://image.tmdb.org/t/p/w1280\${movie.backdrop_path}\`
+        ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}`
         : undefined,
     description,
     releaseInfo: data.release_date
@@ -263,7 +263,7 @@ async function movieDetails(movie) {
       : String(movie.year || ""),
     genres: (data.genres || []).map(genre => genre.name),
     links: [{
-      name: \`Find where to watch in \${REGION}\`,
+      name: `Find where to watch in ${REGION}`,
       category: "watch",
       url: watchUrl
     }]
@@ -285,7 +285,7 @@ function belongs(movie, category) {
     cutoff.setFullYear(cutoff.getFullYear() - 2);
     return movie.release_date && movie.release_date >= cutoff.toISOString().slice(0, 10);
   }
-  if (/^\\d{4}$/.test(category)) return String(movie.year) === category;
+  if (/^\d{4}$/.test(category)) return String(movie.year) === category;
   return holidays.some(holiday => normalize(holiday) === normalize(category));
 }
 
@@ -405,7 +405,7 @@ app.get("/meta/:type/:id.json", async (req, res) => {
     const candidates = cachedDiscovery?.value || readMovies();
     movie = candidates.find(item => Number(item.tmdbId) === tmdbId) || {
       tmdbId,
-      title: \`Hallmark movie \${tmdbId}\`
+      title: `Hallmark movie ${tmdbId}`
     };
 
     const meta = await movieDetails(movie);
@@ -417,5 +417,5 @@ app.get("/meta/:type/:id.json", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(\`Hallmark Holiday Vault running on port \${PORT}\`);
+  console.log(`Hallmark Holiday Vault running on port ${PORT}`);
 });
