@@ -1,0 +1,26 @@
+[
+  {
+    "title": "The Christmas Card",
+    "year": 2006,
+    "holiday": ["Christmas"],
+    "network": "Hallmark Channel",
+    "status": "released",
+    "tmdbId": null
+  },
+  {
+    "title": "A Royal Christmas",
+    "year": 2014,
+    "holiday": ["Christmas"],
+    "network": "Hallmark Channel",
+    "status": "released",
+    "tmdbId": null
+  },
+  {
+    "title": "Christmas at Pemberley Manor",
+    "year": 2018,
+    "holiday": ["Christmas"],
+    "network": "Hallmark Channel",
+    "status": "released",
+    "tmdbId": null
+  }
+]
